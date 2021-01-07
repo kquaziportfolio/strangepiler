@@ -50,13 +50,17 @@ class CommandMachine:
         self.vars=VarMachine()
         self.randommachine=RandomMachine(self)
         self.timemachine=TimeMachine(self)
-    def allocate_command(self,command,*args):
+    def allocate_command(self,command,line,*args):
         if "." in command:
             cl=command.split(".")[0]
             command=command.split(".")[1:]
             getattr(getattr(self,"".join(cl)+"machine"),".".join(command))(*args)
             return
-        getattr(self,"do_"+command)(*args)
+        try:
+            getattr(self,"do_"+command)(*args)
+        except AttributeError as e:
+            print(f"STRANGEPILER EXCEPTION (line {line}): No such command, \"{command}\".")
+            exit()
 
     def do_push(self,*element):
         self.stack.push(",".join(element))
@@ -124,24 +128,29 @@ class CommandMachine:
         self.stack.stack=[]
     def do_xor(self):
         self.stack.push(self.stack.pop()^self.stack.pop())
+    def do_system(self):
+        import subprocess as sp
+        sp.run(self.stack.pop(),shell=True)
         
 def parser(code,debug):
     cmd=CommandMachine()
+    linenum=1
     for line in code:
         command=line.split(" ")[0]
         if command=="" or command.startswith("//"):
             continue
         if len(line.split(" "))==1:
-            cmd.allocate_command(command)
+            cmd.allocate_command(command,linenum)
         else:
-            cmd.allocate_command(command,*" ".join(line.split(" ")[1:]).split(","))
+            cmd.allocate_command(command,linenum,*" ".join(line.split(" ")[1:]).split(","))
+        linenum+=1
     if not debug:
-        cmd.allocate_command("cleanmemory")
+        cmd.allocate_command("cleanmemory",linenum)
         return
     print("END OF OUTPUT\n\n\nDEBUG DATA")
     print("STACK:",cmd.stack.stack)
     print("VARS:",cmd.vars.vars)
-    cmd.allocate_command("cleanmemory")
+    cmd.allocate_command("cleanmemory",linenum)
 
 
 @click.group()
